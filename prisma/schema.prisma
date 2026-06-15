@@ -7,50 +7,114 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── USER & AUTH (Supabase-compatible) ───
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  phone     String?
-  password  String
-  role      String   @default("customer")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
-  cartItems CartItem[]
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  phone         String?
+  password      String
+  avatar        String?
+  role          String     @default("customer") // customer | admin | super_admin
+  locale        String     @default("en")
+  metadata      String     @default("{}") // JSON: extra fields
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  orders        Order[]
+  cartItems     CartItem[]
+  addresses     Address[]
+  wishlists     Wishlist[]
+  reviews       Review[]
 }
 
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String   @default("Home") // Home | Work | Other
+  firstName   String
+  lastName    String
+  phone       String?
+  address1    String
+  address2    String?
+  city        String
+  province    String?
+  postalCode  String?
+  country     String   @default("US")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── PRODUCT CATALOG (Medusa-style) ───
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  image     String?
-  createdAt DateTime @default(now())
-  products  Product[]
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  icon        String?
+  parentId    String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  metadata    String    @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryTree")
+}
+
+model Collection {
+  id          String    @id @default(cuid())
+  title       String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String
-  price       Float
-  comparePrice Float?
-  images      String
-  category    String
-  sizes       String
-  colors      String
-  inStock     Boolean  @default(true)
-  featured    Boolean  @default(false)
-  rating      Float    @default(0)
-  reviewCount Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  categoryRef Category?  @relation(fields: [category], references: [slug])
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  id            String      @id @default(cuid())
+  name          String
+  slug          String      @unique
+  subtitle      String?
+  description   String
+  material      String?
+  price         Float
+  comparePrice  Float?
+  costPrice     Float?
+  images        String      // JSON array of URLs
+  thumbnail     String?
+  category      String
+  categoryRef   Category?   @relation(fields: [category], references: [slug])
+  collectionIds String?     // JSON array of collection IDs
+  collection    Collection? @relation(fields: [collectionIds], references: [id])
+  sizes         String
+  colors        String
+  weight        Float?
+  originCountry String?
+  inStock       Boolean     @default(true)
+  stockQuantity Int         @default(100)
+  featured      Boolean     @default(false)
+  isNew         Boolean     @default(false)
+  isSale        Boolean     @default(false)
+  rating        Float       @default(0)
+  reviewCount   Int         @default(0)
+  tags          String?     // JSON array
+  metadata      String      @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlists     Wishlist[]
 }
 
+// ─── SHOPPING ───
 model CartItem {
   id        String   @id @default(cuid())
   userId    String
@@ -66,26 +130,48 @@ model CartItem {
   @@unique([userId, productId, size, color])
 }
 
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+// ─── ORDERS (Medusa-style) ───
 model Order {
-  id            String      @id @default(cuid())
-  userId        String
-  orderNumber   String      @unique
-  status        String      @default("pending")
-  total         Float
-  subtotal      Float
-  shipping      Float       @default(0)
-  tax           Float       @default(0)
-  shippingName  String
-  shippingPhone String
+  id              String      @id @default(cuid())
+  userId          String
+  orderNumber     String      @unique
+  status          String      @default("pending")
+  fulfillmentStatus String    @default("unfulfilled")
+  total           Float
+  subtotal        Float
+  shipping        Float       @default(0)
+  tax             Float       @default(0)
+  discount        Float       @default(0)
+  couponCode      String?
+  shippingName    String
+  shippingPhone   String
   shippingAddress String
-  shippingCity  String
-  paymentMethod String      @default("cod")
-  paymentStatus String      @default("pending")
-  whatsAppNotified Boolean  @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User        @relation(fields: [userId], references: [id])
-  items         OrderItem[]
+  shippingCity    String
+  shippingProvince String?
+  shippingCountry String      @default("US")
+  shippingMethod  String?
+  paymentMethod   String      @default("cod")
+  paymentStatus   String      @default("pending")
+  paymentId       String?     // External payment ID
+  whatsAppNotified Boolean    @default(false)
+  driveBackedUp   Boolean     @default(false)
+  notes           String?
+  metadata        String      @default("{}")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
 }
 
 model OrderItem {
@@ -93,6 +179,7 @@ model OrderItem {
   orderId   String
   productId String
   name      String
+  subtitle  String?
   price     Float
   quantity  Int
   size      String?
@@ -102,9 +189,35 @@ model OrderItem {
   product   Product  @relation(fields: [productId], references: [id])
 }
 
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  rating    Int
+  title     String?
+  comment   String?
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ─── SETTINGS ───
 model Settings {
   id        String   @id @default(cuid())
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// ─── REGIONS (Medusa-style) ───
+model Region {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  currency    String   @default("USD")
+  taxRate     Float    @default(0)
+  countries   String   @default("[]") // JSON array
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

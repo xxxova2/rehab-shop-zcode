@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     })
 
     const categories = await db.category.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
     })
 
@@ -38,13 +39,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, slug, description, price, comparePrice, images, category, sizes, colors, inStock, featured } = body
+    const { name, slug, subtitle, description, material, price, comparePrice, images, category, sizes, colors, inStock, featured, isNew, isSale, stockQuantity, tags } = body
 
     const product = await db.product.create({
       data: {
         name,
         slug,
+        subtitle: subtitle || null,
         description,
+        material: material || null,
         price: parseFloat(price),
         comparePrice: comparePrice ? parseFloat(comparePrice) : null,
         images,
@@ -53,6 +56,10 @@ export async function POST(request: Request) {
         colors,
         inStock: inStock !== undefined ? inStock : true,
         featured: featured !== undefined ? featured : false,
+        isNew: isNew !== undefined ? isNew : false,
+        isSale: isSale !== undefined ? isSale : false,
+        stockQuantity: stockQuantity ? parseInt(stockQuantity) : 100,
+        tags: tags || null,
       },
     })
 
