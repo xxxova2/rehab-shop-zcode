@@ -242,8 +242,9 @@ export const translations = {
 export type Locale = keyof typeof translations
 export type TranslationKey = keyof typeof translations.en
 
-export function t(locale: Locale, key: string): string {
-  return (translations[locale] as any)?.[key] || translations.en[key as TranslationKey] || key
+export function t(locale: string, key: string): string {
+  const loc = (locale === 'en' || locale === 'ar') ? locale : 'en'
+  return (translations[loc] as any)?.[key] || translations.en[key as TranslationKey] || key
 }
 
 export function formatPrice(amount: number, currency = 'USD', symbol = '$'): string {

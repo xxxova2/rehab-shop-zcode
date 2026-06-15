@@ -1,5 +1,8 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+
+const SALT_ROUNDS = 12
 
 const CATEGORIES = [
   { name: 'Dresses', slug: 'dresses', description: 'Elegant dresses for every occasion', icon: '👗' },
@@ -210,20 +213,36 @@ export async function POST(request: Request) {
       }
     }
 
-    // Seed admin user
+    // Seed admin user (with bcrypt hashed password)
     const adminExists = await db.user.findUnique({ where: { email: 'admin@rehabshop.com' } })
     if (!adminExists) {
+      const hashedAdminPw = await bcrypt.hash('admin123', SALT_ROUNDS)
       await db.user.create({
-        data: { email: 'admin@rehabshop.com', name: 'Admin', password: 'admin123', role: 'admin', phone: '+15551234567' },
+        data: { email: 'admin@rehabshop.com', name: 'Admin', password: hashedAdminPw, role: 'admin', phone: '+15551234567' },
       })
+    } else {
+      // Migrate existing plaintext password to bcrypt
+      const needsMigration = !adminExists.password.startsWith('$2')
+      if (needsMigration) {
+        const hashedAdminPw = await bcrypt.hash('admin123', SALT_ROUNDS)
+        await db.user.update({ where: { email: 'admin@rehabshop.com' }, data: { password: hashedAdminPw } })
+      }
     }
 
-    // Seed demo customer
+    // Seed demo customer (with bcrypt hashed password)
     const customerExists = await db.user.findUnique({ where: { email: 'demo@rehabshop.com' } })
     if (!customerExists) {
+      const hashedDemoPw = await bcrypt.hash('demo123', SALT_ROUNDS)
       await db.user.create({
-        data: { email: 'demo@rehabshop.com', name: 'Demo User', password: 'demo123', phone: '+1234567890', role: 'customer' },
+        data: { email: 'demo@rehabshop.com', name: 'Demo User', password: hashedDemoPw, phone: '+1234567890', role: 'customer' },
       })
+    } else {
+      // Migrate existing plaintext password to bcrypt
+      const needsMigration = !customerExists.password.startsWith('$2')
+      if (needsMigration) {
+        const hashedDemoPw = await bcrypt.hash('demo123', SALT_ROUNDS)
+        await db.user.update({ where: { email: 'demo@rehabshop.com' }, data: { password: hashedDemoPw } })
+      }
     }
 
     // Seed settings
