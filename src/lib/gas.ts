@@ -11,8 +11,6 @@ export type GasResponse<T = unknown> = GasOk<T> | GasErr;
 const GAS_URL = process.env.GAS_URL || process.env.NEXT_PUBLIC_GAS_URL || '';
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
-console.log('[gas.ts] module loaded. GAS_URL set:', !!GAS_URL, 'ADMIN_KEY set:', !!ADMIN_KEY, 'len:', ADMIN_KEY.length);
-
 function ensureConfig() {
   if (!GAS_URL) {
     const e = new Error('GAS_URL not configured');
@@ -25,11 +23,10 @@ function ensureConfig() {
 function maybeInjectAdminKey(body: Record<string, unknown>): Record<string, unknown> {
   const action = String(body.action || '');
   const isAdmin = action.startsWith('admin') || action === 'uploadProductImage' || action === 'seedSampleData';
-  const out = (isAdmin && !body.admin_key) ? { ...body, admin_key: ADMIN_KEY } : body;
-  if (action === 'uploadProductImage') {
-    console.log('[gas.ts] uploadProductImage: isAdmin=', isAdmin, 'bodyHasKey=', !!body.admin_key, 'adminKeyLen=', ADMIN_KEY.length, 'sendingKey=', !!(out as any).admin_key);
+  if (isAdmin && !body.admin_key) {
+    return { ...body, admin_key: ADMIN_KEY };
   }
-  return out;
+  return body;
 }
 
 export async function gasFetch<T = unknown>(body: Record<string, unknown>): Promise<GasResponse<T>> {
