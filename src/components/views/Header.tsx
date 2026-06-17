@@ -44,7 +44,6 @@ export function Header() {
               { view: 'home' as const, label: t(locale, 'shop'), icon: ShoppingBag },
               { view: 'wishlist' as const, label: t(locale, 'wishlist'), icon: Heart },
               { view: 'orders' as const, label: t(locale, 'orders'), icon: Package },
-              { view: 'admin' as const, label: t(locale, 'admin'), icon: LayoutDashboard },
             ].map((item) => (
               <Button key={item.view} variant={currentView === item.view ? 'default' : 'ghost'} size="sm"
                 onClick={() => setView(item.view)}
@@ -95,7 +94,6 @@ export function Header() {
               { view: 'home' as const, label: t(locale, 'shop'), icon: ShoppingBag },
               { view: 'wishlist' as const, label: t(locale, 'wishlist'), icon: Heart },
               { view: 'orders' as const, label: t(locale, 'orders'), icon: Package },
-              { view: 'admin' as const, label: t(locale, 'admin'), icon: LayoutDashboard },
             ].map((item) => (
               <Button key={item.view} variant="ghost" className="w-full justify-start" onClick={() => { setView(item.view); setMobileMenuOpen(false) }}>
                 <item.icon className="w-4 h-4 mr-2" />{item.label}

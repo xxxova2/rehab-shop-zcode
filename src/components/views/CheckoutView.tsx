@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChevronLeft, ArrowRight, MapPin, CreditCard, CheckCircle, Package, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatPriceMulti } from '@/lib/currency'
 
 export function CheckoutView() {
   const { cart, clearCart, setView, userId, isLoggedIn, setUser } = useStore()
@@ -73,7 +74,7 @@ export function CheckoutView() {
       <Card className="text-left mb-6"><CardContent className="p-6 space-y-3">
         <div className="flex justify-between"><span className="text-gray-500">Order Number</span><span className="font-bold bg-gradient-to-r from-rose-500 to-fuchsia-600 bg-clip-text text-transparent">#{orderResult.orderNumber}</span></div>
         <Separator />
-        <div className="flex justify-between"><span className="text-gray-500">Total</span><span className="font-bold">${orderResult.total?.toFixed(2)}</span></div>
+        <div className="flex justify-between"><span className="text-gray-500">Total</span><span className="font-bold" dir="ltr">{formatPriceMulti(orderResult.total || 0)}</span></div>
         <div className="flex justify-between"><span className="text-gray-500">Payment</span><span className="capitalize">{orderResult.paymentMethod === 'cod' ? 'Cash on Delivery' : orderResult.paymentMethod}</span></div>
         <div className="flex justify-between"><span className="text-gray-500">WhatsApp</span><span>{orderResult.whatsAppNotified ? '✅ Notified' : '⏳ Pending'}</span></div>
         <div className="flex justify-between"><span className="text-gray-500">Drive Backup</span><span>{orderResult.driveBackedUp ? '✅ Backed Up' : '⏳ Pending'}</span></div>
@@ -156,7 +157,7 @@ export function CheckoutView() {
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
                 <Button className="flex-1 bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={handlePlaceOrder} disabled={processing}>
-                  {processing ? <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> Processing...</> : <>Place Order - ${total.toFixed(2)}</>}
+                  {processing ? <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> Processing...</> : <>Place Order</>}
                 </Button>
               </div>
             </CardContent></Card>
@@ -167,16 +168,16 @@ export function CheckoutView() {
           <ScrollArea className="max-h-48"><div className="space-y-3">{cart.map((item, i) => (
             <div key={i} className="flex gap-3"><div className="w-12 h-12 bg-gray-50 rounded overflow-hidden flex-shrink-0"><img src={item.image} alt={item.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} /></div>
             <div className="min-w-0 flex-1"><p className="text-xs font-medium truncate">{item.name}</p><p className="text-xs text-gray-500">x{item.quantity} | {item.size}</p></div>
-            <span className="text-sm font-medium">${(item.price * item.quantity).toFixed(2)}</span></div>
+            <span className="text-sm font-medium leading-tight" dir="ltr">{formatPriceMulti(item.price * item.quantity)}</span></div>
           ))}</div></ScrollArea>
           <Separator />
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span className={shipping === 0 ? 'text-green-600' : ''}>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Tax</span><span>${tax.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="leading-tight" dir="ltr">{formatPriceMulti(subtotal)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Shipping</span><span className={shipping === 0 ? 'text-green-600' : ''} dir="ltr">{shipping === 0 ? 'FREE' : formatPriceMulti(shipping)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Tax</span><span dir="ltr">{formatPriceMulti(tax)}</span></div>
           </div>
           <Separator />
-          <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="bg-gradient-to-r from-rose-500 to-fuchsia-600 bg-clip-text text-transparent">${total.toFixed(2)}</span></div>
+          <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="bg-gradient-to-r from-rose-500 to-fuchsia-600 bg-clip-text text-transparent leading-tight" dir="ltr">{formatPriceMulti(total)}</span></div>
         </CardContent></Card>
       </div>
     </div>

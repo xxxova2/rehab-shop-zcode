@@ -13,6 +13,7 @@ import { Heart, Star, Plus, Search, Filter, ImageIcon } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { SORT_OPTIONS } from '@/lib/medusa'
 import { toast } from 'sonner'
+import { formatPriceMulti } from '@/lib/currency'
 
 // Category Bar
 export function CategoryBar({ categories, selected, onSelect }: { categories: Category[]; selected: string; onSelect: (s: string) => void }) {
@@ -90,8 +91,8 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-xs text-gray-500 ml-1">({product.reviewCount})</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-bold text-gray-900">${product.price.toFixed(2)}</span>
-          {product.comparePrice && <span className="text-sm text-gray-400 line-through">${product.comparePrice.toFixed(2)}</span>}
+          <span className="font-bold text-gray-900 text-sm leading-tight" dir="ltr">{formatPriceMulti(product.price)}</span>
+          {product.comparePrice && <span className="text-sm text-gray-400 line-through" dir="ltr">{formatPriceMulti(product.comparePrice)}</span>}
         </div>
       </CardContent>
     </Card>

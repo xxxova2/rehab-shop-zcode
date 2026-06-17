@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ImageIcon, Truck, RotateCcw, Shield } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatPriceMulti } from '@/lib/currency'
 
 export function ProductDetail() {
   const { selectedProductId, setView, addToCart, addToWishlist, removeFromWishlist, isInWishlist } = useStore()
@@ -62,8 +63,8 @@ export function ProductDetail() {
             </div>
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
-            {product.comparePrice && <><span className="text-xl text-gray-400 line-through">${product.comparePrice.toFixed(2)}</span><Badge className="bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white">{discount}% OFF</Badge></>}
+            <span className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight" dir="ltr">{formatPriceMulti(product.price)}</span>
+            {product.comparePrice && <><span className="text-xl text-gray-400 line-through" dir="ltr">{formatPriceMulti(product.comparePrice)}</span><Badge className="bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white">{discount}% OFF</Badge></>}
           </div>
           {product.material && <p className="text-sm text-gray-600"><span className="font-medium">Material:</span> {product.material}</p>}
           <p className="text-gray-600 leading-relaxed">{product.description}</p>
