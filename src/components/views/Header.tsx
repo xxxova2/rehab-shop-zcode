@@ -79,7 +79,7 @@ export function Header() {
                 {userRole === 'admin' && <Badge className="bg-rose-100 text-rose-700 text-[9px]">Admin</Badge>}
               </div>
             ) : (
-              <Button variant="default" size="sm" className="bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={() => setView('home')}>
+              <Button variant="default" size="sm" className="bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={() => setView('checkout')}>
                 <LogIn className="w-4 h-4 mr-1" /><span className="hidden sm:inline">{t(locale, 'signIn')}</span>
               </Button>
             )}
