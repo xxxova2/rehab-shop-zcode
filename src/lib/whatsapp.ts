@@ -87,3 +87,39 @@ export function buildWhatsappOrderMessage(items: WhatsAppCartItem[], customer: W
 export function buildWhatsappOrderLink(message: string): string {
   return 'https://wa.me/' + ADMIN_WHATSAPP_DIGITS + '?text=' + encodeURIComponent(message);
 }
+
+export type SingleProductInfo = {
+  name: string;
+  size?: string;
+  color?: string;
+  quantity: number;
+  price: number;
+  subtitle?: string;
+};
+
+export function buildSingleProductWhatsappMessage(product: SingleProductInfo, locale: string = 'en'): string {
+  const lc = locale || 'en';
+  const lines: string[] = [];
+  if (lc === 'ar') {
+    lines.push('\u0645\u0631\u062d\u0628\u0627\u064b\u060c \u0623\u0648\u062f \u0623\u0646 \u0623\u0637\u0644\u0628:');
+    lines.push('\u0645\u0646\u062a\u062c: ' + product.name);
+    if (product.subtitle) lines.push(product.subtitle);
+    if (product.size) lines.push('\u0627\u0644\u0645\u0642\u0627\u0633: ' + product.size);
+    if (product.color) lines.push('\u0627\u0644\u0644\u0648\u0646: ' + product.color);
+    lines.push('\u0627\u0644\u0643\u0645\u064a\u0629: ' + product.quantity);
+    lines.push('\u0627\u0644\u0633\u0639\u0631: ' + (product.price * product.quantity).toFixed(2) + ' ' + 'SAR');
+    lines.push('');
+    lines.push('\u0631\u062c\u0627\u0621\u064b \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0637\u0644\u0628.');
+  } else {
+    lines.push('Hello, I would like to order:');
+    lines.push('Product: ' + product.name);
+    if (product.subtitle) lines.push(product.subtitle);
+    if (product.size) lines.push('Size: ' + product.size);
+    if (product.color) lines.push('Color: ' + product.color);
+    lines.push('Quantity: ' + product.quantity);
+    lines.push('Price: ' + (product.price * product.quantity).toFixed(2) + ' SAR');
+    lines.push('');
+    lines.push('Please confirm the order.');
+  }
+  return lines.join('\n');
+}

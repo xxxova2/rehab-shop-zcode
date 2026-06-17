@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ImageIcon, Truck, RotateCcw, Shield } from 'lucide-react'
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ImageIcon, Truck, RotateCcw, Shield, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatPriceMulti } from '@/lib/currency'
+import { buildSingleProductWhatsappMessage, buildWhatsappOrderLink } from '@/lib/whatsapp'
 
 export function ProductDetail() {
   const { selectedProductId, setView, addToCart, addToWishlist, removeFromWishlist, isInWishlist } = useStore()
@@ -38,6 +39,11 @@ export function ProductDetail() {
   const handleAddToCart = () => {
     addToCart({ productId: product.id, name: product.name, subtitle: product.subtitle, price: product.price, comparePrice: product.comparePrice || undefined, image: product.images, quantity, size: selectedSize, color: selectedColor })
     toast.success(`${product.name} added to cart!`, { action: { label: 'View Cart', onClick: () => setView('cart') } })
+  }
+
+  const handleBuyViaWhatsapp = () => {
+    const msg = buildSingleProductWhatsappMessage({ name: product.name, subtitle: product.subtitle, size: selectedSize, color: selectedColor, quantity, price: product.price }, typeof window !== 'undefined' && (window as any).__rehabLocale === 'ar' ? 'ar' : 'en')
+    window.open(buildWhatsappOrderLink(msg), '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -98,8 +104,11 @@ export function ProductDetail() {
             <Button size="lg" variant="outline" className={`h-12 ${wishlisted ? 'border-rose-300 text-rose-600' : 'border-gray-200'}`} onClick={() => wishlisted ? removeFromWishlist(product.id) : addToWishlist({ productId: product.id, name: product.name, price: product.price, image: product.images })}>
               <Heart className={`w-5 h-5 ${wishlisted ? 'fill-rose-500' : ''}`} />
             </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t">
+            </div>
+            <Button size="lg" variant="outline" className="w-full h-12 border-green-500 text-green-700 hover:bg-green-50" onClick={handleBuyViaWhatsapp}>
+              <MessageCircle className="w-5 h-5 mr-2" /> Buy via WhatsApp
+            </Button>
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t">
             <div className="text-center"><Truck className="w-5 h-5 text-rose-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Free Shipping</p></div>
             <div className="text-center"><RotateCcw className="w-5 h-5 text-rose-600 mx-auto mb-1" /><p className="text-xs text-gray-500">30-Day Returns</p></div>
             <div className="text-center"><Shield className="w-5 h-5 text-rose-600 mx-auto mb-1" /><p className="text-xs text-gray-500">Secure Checkout</p></div>

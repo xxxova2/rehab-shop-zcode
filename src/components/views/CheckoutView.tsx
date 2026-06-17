@@ -10,7 +10,6 @@ import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChevronLeft, ArrowRight, MapPin, CreditCard, CheckCircle, Package, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,19 +33,15 @@ export function CheckoutView() {
 
   const handleAuth = async () => {
     try {
-      if (loginMode === 'register') {
-        const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginForm) })
-        const data = await res.json()
-        if (data.error) { toast.error(data.error); return }
-        setUser(data.id, data.name, data.email, data.role)
-      } else {
-        const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginForm.email, password: loginForm.password, action: 'login' }) })
-        const data = await res.json()
-        if (data.error) { toast.error(data.error); return }
-        setUser(data.id, data.name, data.email, data.role)
-      }
-      setStep(2); toast.success(loginMode === 'register' ? 'Account created!' : 'Welcome back!')
-    } catch { toast.error('Authentication failed') }
+      if (!loginForm.email.trim() || !loginForm.password.trim()) { toast.error('Email and password required'); return }
+      const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginForm.email, password: loginForm.password, action: 'login' }) })
+      const data = await res.json()
+      if (data.error) { toast.error(data.error); return }
+      if (data.role !== 'admin') { toast.error('Not an admin account'); return }
+      setUser(data.id, data.name, data.email, data.role)
+      setView('admin')
+      toast.success('Welcome, admin')
+    } catch { toast.error('Sign in failed') }
   }
 
   const handlePlaceOrder = async () => {
@@ -102,25 +97,23 @@ export function CheckoutView() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           {step === 1 && (
-            <Card><CardContent className="p-6">
-              <Tabs value={loginMode} onValueChange={(v) => setLoginMode(v as 'login' | 'register')}>
-                <TabsList className="grid w-full grid-cols-2 mb-4"><TabsTrigger value="login">Sign In</TabsTrigger><TabsTrigger value="register">Create Account</TabsTrigger></TabsList>
-                <TabsContent value="login" className="space-y-4">
-                  <div><Label>Email</Label><Input placeholder="your@email.com" value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} /></div>
-                  <div><Label>Password</Label><Input type="password" placeholder="••••••" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} /></div>
-                  <p className="text-xs text-gray-500">Demo: demo@rehabshop.com / demo123</p>
-                </TabsContent>
-                <TabsContent value="register" className="space-y-4">
-                  <div><Label>Full Name</Label><Input placeholder="Jane Doe" value={loginForm.name} onChange={(e) => setLoginForm({ ...loginForm, name: e.target.value })} /></div>
-                  <div><Label>Email</Label><Input placeholder="your@email.com" value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} /></div>
-                  <div><Label>Phone</Label><Input placeholder="+1234567890" value={loginForm.phone} onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value })} /></div>
-                  <div><Label>Password</Label><Input type="password" placeholder="••••••" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} /></div>
-                </TabsContent>
-              </Tabs>
-              <Button className="w-full mt-4 bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={handleAuth}>
-                {loginMode === 'login' ? 'Sign In' : 'Create Account'} <ArrowRight className="w-4 h-4 ml-2" />
+            <Card><CardContent className="p-6 space-y-4">
+              <div>
+                <h3 className="font-bold text-lg">Admin Sign In</h3>
+                <p className="text-sm text-gray-500 mt-1">Manage products, orders, and settings.</p>
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input placeholder="admin@rehabshop.com" value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} autoComplete="username" />
+              </div>
+              <div>
+                <Label>Password</Label>
+                <Input type="password" placeholder="Enter admin password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} autoComplete="current-password" />
+              </div>
+              <Button className="w-full bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={handleAuth}>
+                Sign In <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
-              {isLoggedIn && <div className="mt-4 p-3 bg-green-50 rounded-lg flex items-center gap-2 text-green-700 text-sm"><CheckCircle className="w-4 h-4" /> Signed in</div>}
+              <p className="text-xs text-gray-500 text-center">Customers: please use the WhatsApp button in the cart to place an order.</p>
             </CardContent></Card>
           )}
           {step === 2 && (

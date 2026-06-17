@@ -156,12 +156,21 @@ function getPublicSettings() {
 // ─── Auth ───
 function adminLogin(body) {
   if (!body.email || !body.password) return { ok: false, error: 'Email and password required' };
+  // Shared secret path: the ADMIN_KEY script property acts as a master password.
+  // If the customer types the shared secret as the password, grant admin access
+  // regardless of the email entered. This matches the project taste: simple
+  // shared secret instead of JWT or per-user passwords.
+  if (ADMIN_KEY && String(body.password) === String(ADMIN_KEY)) {
+    const users = readSheet(SHEETS.USERS, USER_COLS);
+    const adminUser = users.find(u => String(u.role || '').toLowerCase() === 'admin')
+      || users[0]
+      || { id: Utilities.getUuid(), email: body.email, name: 'Admin', role: 'admin' };
+    return { ok: true, id: adminUser.id, email: body.email || adminUser.email, name: adminUser.name, role: 'admin', phone: adminUser.phone || '' };
+  }
+  // Per-user password fallback (for normal users / customer accounts).
   const users = readSheet(SHEETS.USERS, USER_COLS);
   const user = users.find(u => String(u.email || '').toLowerCase() === String(body.email).toLowerCase());
   if (!user) return { ok: false, error: 'Invalid credentials' };
-  // For now we store password as plain text here (per Zcode original); in a
-  // production system you would hash. The proxy only accepts requests with
-  // the matching admin_key, which is the actual security boundary.
   if (String(user.password) !== String(body.password)) return { ok: false, error: 'Invalid credentials' };
   return { ok: true, id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone };
 }
@@ -458,7 +467,7 @@ function seedSampleData() {
 
   // Admin + demo users (default password matching Zcode's seed)
   const now = new Date().toISOString();
-  upsertRow(SHEETS.USERS, USER_COLS, 'email', { id: Utilities.getUuid(), email: 'admin@rehabshop.com', name: 'Admin', phone: '+15551234567', password: 'admin123', role: 'admin', locale: 'en', createdAt: now, updatedAt: now });
+  upsertRow(SHEETS.USERS, USER_COLS, 'email', { id: Utilities.getUuid(), email: 'admin@rehabshop.com', name: 'Admin', phone: '+201555121132', password: '', role: 'admin', locale: 'en', createdAt: now, updatedAt: now });
   upsertRow(SHEETS.USERS, USER_COLS, 'email', { id: Utilities.getUuid(), email: 'demo@rehabshop.com', name: 'Demo User', phone: '+1234567890', password: 'demo123', role: 'customer', locale: 'en', createdAt: now, updatedAt: now });
 
   // Default settings
