@@ -63,3 +63,20 @@ export async function clientGasFetch<T = unknown>(body: Record<string, unknown>)
   });
   return r.json();
 }
+
+/**
+ * Upload an image file to Google Drive via GAS and return the public URL.
+ * Used by the admin product form to attach a picture without manually pasting a URL.
+ */
+export async function uploadProductImage(file: File): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  const result = await gasFetch<{ url: string; file_id: string }>({
+    action: 'uploadProductImage',
+    image_base64: base64,
+    mime_type: file.type || 'image/jpeg',
+    filename: file.name || 'product.jpg',
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, url: (result as any).url };
+}

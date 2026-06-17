@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { Product, Category, OrderType } from '@/lib/types'
 import { ORDER_STATUSES, getWhatsAppUrl } from '@/lib/medusa'
@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tag, Package, Clock, DollarSign, PlusCircle, Edit, Trash, Download, MessageCircle, Phone, Globe } from 'lucide-react'
+import { Tag, Package, Clock, DollarSign, PlusCircle, Edit, Trash, Download, MessageCircle, Phone, Globe, Upload, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
+
 
 export function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([])
@@ -25,6 +26,8 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('products')
   const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [imageUploading, setImageUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({ name: '', slug: '', description: '', price: '', comparePrice: '', material: '', images: '', category: 'dresses', sizes: 'XS,S,M,L,XL', colors: 'Black', inStock: true, featured: false, isNew: false, isSale: false, stockQuantity: '100', subtitle: '' })
 
   const fetchProducts = useCallback(async () => { try { const res = await fetch('/api/products'); const data = await res.json(); setProducts(data.products || []); setCategories(data.categories || []) } catch (e) { console.error(e) } }, [])
@@ -41,6 +44,18 @@ export function AdminDashboard() {
       setTab('add-product')
     }
   }, [products])
+
+  const handleImageFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please pick an image file'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be smaller than 5MB'); return }
+    setImageUploading(true)
+    try {
+      const fd = new FormData(); fd.append('file', file); const r = await fetch('/api/upload-image', { method: 'POST', body: fd }).then(x => x.json())
+      if (r.ok && r.url) { setForm((f) => ({ ...f, images: r.url! })); toast.success('Image uploaded') }
+      else toast.error(r.error || 'Upload failed')
+    } catch (e: any) { toast.error('Upload error: ' + (e?.message || 'unknown')) }
+    finally { setImageUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
+  }
 
   const handleSaveProduct = async () => {
     if (!form.name || !form.slug || !form.price) { toast.error('Please fill in required fields'); return }
@@ -65,7 +80,6 @@ export function AdminDashboard() {
         <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
         <div className="flex gap-2">
           <Button onClick={handleBackup} variant="outline" size="sm"><Download className="w-4 h-4 mr-2" /> Drive Backup</Button>
-          <Button onClick={async () => { try { const res = await fetch('/api/seed', { method: 'POST' }); const data = await res.json(); toast.success(`Seeded! ${data.productsCreated} products`); fetchProducts() } catch { toast.error('Failed') } }} variant="outline" size="sm"><PlusCircle className="w-4 h-4 mr-2" /> Seed Data</Button>
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -111,14 +125,39 @@ export function AdminDashboard() {
           <Card><CardContent className="p-6 space-y-4">
             <h3 className="font-bold text-lg">Add New Product</h3>
             <div className="grid md:grid-cols-2 gap-4">
-              <div><Label>Product Name *</Label><Input placeholder="Silk Evening Gown" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') })} /></div>
+              <div><Label>Product Name *</Label><Input placeholder="Silk Evening Gown" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '-').replace(/(^-|-$)/g, '') })} /></div>
               <div><Label>Slug *</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
               <div><Label>Subtitle</Label><Input placeholder="Red Carpet Ready" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} /></div>
               <div><Label>Material</Label><Input placeholder="100% Silk" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} /></div>
               <div><Label>Price *</Label><Input type="number" placeholder="99.99" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
               <div><Label>Compare Price</Label><Input type="number" placeholder="149.99" value={form.comparePrice} onChange={(e) => setForm({ ...form, comparePrice: e.target.value })} /></div>
               <div className="md:col-span-2"><Label>Description</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div className="md:col-span-2"><Label>Image URL</Label><Input value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} />{form.images && <div className="mt-2 w-32 h-32 bg-gray-50 rounded overflow-hidden"><img src={form.images} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} /></div>}</div>
+              <div className="md:col-span-2">
+                <Label>Product Image</Label>
+                <div className="mt-1 flex items-start gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input ref={fileInputRef} type="file" accept="image/*" disabled={imageUploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f) }} className="hidden" id="product-image-input" />
+                      <Button type="button" variant="outline" disabled={imageUploading} onClick={() => fileInputRef.current?.click()}>
+                        {imageUploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Choose Image</>}
+                      </Button>
+                      {form.images && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setForm({ ...form, images: '' })}><X className="w-3 h-3 mr-1" />Remove</Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">JPG, PNG, or WebP. Max 5MB. Uploaded to your Google Drive.</p>
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-gray-500 hover:text-gray-700">Or paste an image URL</summary>
+                      <Input className="mt-2" placeholder="https://..." value={form.images.startsWith('http') && !form.images.includes('drive.google') ? form.images : ''} onChange={(e) => setForm({ ...form, images: e.target.value })} />
+                    </details>
+                  </div>
+                  {form.images && (
+                    <div className="w-32 h-32 bg-gray-50 rounded overflow-hidden flex-shrink-0 border">
+                      <img src={form.images} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    </div>
+                  )}
+                </div>
+              </div>
               <div><Label>Category</Label><Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.slug}>{cat.name}</SelectItem>)}</SelectContent></Select></div>
               <div><Label>Stock Quantity</Label><Input type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} /></div>
               <div><Label>Sizes</Label><Input value={form.sizes} onChange={(e) => setForm({ ...form, sizes: e.target.value })} /></div>
@@ -148,7 +187,7 @@ export function AdminDashboard() {
                 <TableCell className="font-medium">${order.total.toFixed(2)}</TableCell>
                 <TableCell><Select value={order.status} onValueChange={(v) => handleUpdateOrderStatus(order.id, v)}><SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{ORDER_STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select></TableCell>
                 <TableCell>{order.whatsAppNotified ? <Badge className="bg-green-100 text-green-700 text-xs"><MessageCircle className="w-3 h-3 mr-1" />Sent</Badge> : <Badge variant="outline" className="text-xs">Pending</Badge>}</TableCell>
-                <TableCell>{order.driveBackedUp ? <Badge className="bg-blue-100 text-blue-700 text-xs">✓</Badge> : <Badge variant="outline" className="text-xs">—</Badge>}</TableCell>
+                <TableCell>{order.driveBackedUp ? <Badge className="bg-blue-100 text-blue-700 text-xs">Yes</Badge> : <Badge variant="outline" className="text-xs">No</Badge>}</TableCell>
                 <TableCell><Button variant="ghost" size="sm" onClick={() => { window.open(getWhatsAppUrl(order.shippingPhone, `Order #${order.orderNumber} update: Status is now ${order.status}`), '_blank') }}><Phone className="w-3 h-3" /></Button></TableCell>
               </TableRow>
             ))}</TableBody>

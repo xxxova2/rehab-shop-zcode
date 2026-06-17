@@ -87,6 +87,7 @@ function handleAction(body) {
     case 'adminListProducts': return requireAdmin(body, () => adminListProducts());
     case 'adminUpsertProduct': return requireAdmin(body, () => adminUpsertProduct(body));
     case 'adminDeleteProduct': return requireAdmin(body, () => adminDeleteProduct(body));
+    case 'uploadProductImage': return requireAdmin(body, () => uploadProductImage(body));
     case 'adminStats': return requireAdmin(body, () => adminStats());
     case 'adminListOrders': return requireAdmin(body, () => adminListOrders());
     case 'adminUpdateOrder': return requireAdmin(body, () => adminUpdateOrder(body));
@@ -250,6 +251,27 @@ function adminDeleteProduct(body) {
   if (!body.id) return { ok: false, error: 'id required' };
   deleteRow(SHEETS.PRODUCTS, 'id', body.id);
   return { ok: true };
+}
+
+function uploadProductImage(body) {
+  if (!body.image_base64) return { ok: false, error: 'image_base64 required' };
+  const folderName = 'rehab-store-images';
+  let folder;
+  const folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(folderName);
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  }
+  const mime = body.mime_type || 'image/jpeg';
+  const filename = body.filename || ('product-' + Utilities.getUuid() + '.jpg');
+  const blob = Utilities.newBlob(Utilities.base64Decode(body.image_base64), mime, filename);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const fileId = file.getId();
+  const url = 'https://drive.google.com/uc?export=view&id=' + fileId;
+  return { ok: true, url, file_id: fileId };
 }
 
 // ─── Admin: orders ───
