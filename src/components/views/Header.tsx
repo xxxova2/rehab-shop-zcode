@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  ShoppingCart, Search, Heart, Star, Minus, Plus, Trash2, 
+  ShoppingCart, Search, Heart, Star, Minus, Plus, Trash2,
   Package, ChevronLeft, Store, Menu, X,
   Truck, Shield, RotateCcw, CreditCard, Phone, MapPin,
-  User, LogIn, UserPlus, Settings, LayoutDashboard, 
+  User, LogIn, UserPlus, Settings, LayoutDashboard,
   Image as ImageIcon, Tag, Eye, Edit, Trash, PlusCircle,
   Download, MessageCircle, CheckCircle, Clock, AlertCircle,
   ArrowRight, ShoppingBag, Gift, Percent, HeartHandshake,
@@ -23,10 +23,17 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
+  const navItems = [
+    { view: 'home' as const, label: t(locale, 'shop'), icon: ShoppingBag },
+    { view: 'wishlist' as const, label: t(locale, 'wishlist'), icon: Heart },
+    { view: 'orders' as const, label: t(locale, 'orders'), icon: Package },
+    ...(userRole === 'admin' ? [{ view: 'admin' as const, label: 'Admin', icon: Shield }] : []),
+  ]
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b shadow-sm">
       <div className="bg-gradient-to-r from-rose-600 via-pink-600 to-fuchsia-600 text-white text-xs py-1.5 text-center font-medium">
-        🎉 Free Shipping on Orders Over $100 | Use Code: <span className="font-bold">REHAB20</span> for 20% Off
+        Free Shipping on Orders Over $100 | Use Code: <span className="font-bold">REHAB20</span> for 20% Off
       </div>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
@@ -40,11 +47,7 @@ export function Header() {
             </div>
           </button>
           <nav className="hidden md:flex items-center gap-1">
-            {[
-              { view: 'home' as const, label: t(locale, 'shop'), icon: ShoppingBag },
-              { view: 'wishlist' as const, label: t(locale, 'wishlist'), icon: Heart },
-              { view: 'orders' as const, label: t(locale, 'orders'), icon: Package },
-            ].map((item) => (
+            {navItems.map((item) => (
               <Button key={item.view} variant={currentView === item.view ? 'default' : 'ghost'} size="sm"
                 onClick={() => setView(item.view)}
                 className={currentView === item.view ? 'bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white shadow-sm' : ''}>
@@ -71,13 +74,16 @@ export function Header() {
               {cartCount > 0 && <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white text-[10px] h-5 w-5 flex items-center justify-center p-0">{cartCount}</Badge>}
             </Button>
             {isLoggedIn ? (
-              <div className="hidden sm:flex items-center gap-2 text-sm">
+              <button
+                onClick={() => setView(userRole === 'admin' ? 'admin' : 'home')}
+                className="hidden sm:flex items-center gap-2 text-sm hover:opacity-80 transition"
+              >
                 <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-fuchsia-100 rounded-full flex items-center justify-center">
                   <User className="w-4 h-4 text-rose-600" />
                 </div>
                 <span className="font-medium text-gray-700 max-w-[80px] truncate">{userName}</span>
                 {userRole === 'admin' && <Badge className="bg-rose-100 text-rose-700 text-[9px]">Admin</Badge>}
-              </div>
+              </button>
             ) : (
               <Button variant="default" size="sm" className="bg-gradient-to-r from-rose-500 to-fuchsia-600 hover:from-rose-600 hover:to-fuchsia-700 text-white" onClick={() => setView('checkout')}>
                 <LogIn className="w-4 h-4 mr-1" /><span className="hidden sm:inline">{t(locale, 'signIn')}</span>
@@ -90,11 +96,7 @@ export function Header() {
         </div>
         {mobileMenuOpen && (
           <div className="md:hidden border-t py-3 space-y-1">
-            {[
-              { view: 'home' as const, label: t(locale, 'shop'), icon: ShoppingBag },
-              { view: 'wishlist' as const, label: t(locale, 'wishlist'), icon: Heart },
-              { view: 'orders' as const, label: t(locale, 'orders'), icon: Package },
-            ].map((item) => (
+            {navItems.map((item) => (
               <Button key={item.view} variant="ghost" className="w-full justify-start" onClick={() => { setView(item.view); setMobileMenuOpen(false) }}>
                 <item.icon className="w-4 h-4 mr-2" />{item.label}
               </Button>
