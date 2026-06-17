@@ -3,12 +3,17 @@
 //
 // Store these in Project Settings → Script Properties (File → Project properties):
 //   ADMIN_KEY    — admin password (must match Vercel env)
+//   SHEET_ID     — Google Sheet ID hosting the DB (recommended; if absent, falls back to active sheet)
 //   JWT_SECRET   — random string for token signing
 //
 // The script auto-creates its required sheets on first run.
 
 const ADMIN_KEY = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY') || '';
 const APP_NAME = 'Rehab Shop';
+
+// SHEET_ID lets the script open an arbitrary sheet by id (preferred for standalone Web Apps).
+// If unset, we fall back to SpreadsheetApp.getActive() (works for container-bound scripts).
+const SHEET_ID = PropertiesService.getScriptProperties().getProperty('SHEET_ID') || '';
 
 const SHEETS = {
   USERS: 'Users',
@@ -45,7 +50,22 @@ const CATEGORY_COLS = ['id', 'name', 'slug', 'description', 'image', 'icon', 'pa
 
 const SETTING_COLS = ['key', 'value', 'updatedAt'];
 
-// ─── Entry point ───
+// === Sheet access ===
+// Returns the underlying Spreadsheet, preferring SHEET_ID Script Property.
+function _getSpreadsheet() {
+  if (SHEET_ID) {
+    return SpreadsheetApp.openById(SHEET_ID);
+  }
+  try {
+    const ss = SpreadsheetApp.getActive();
+    if (ss) return ss;
+  } catch (e) {
+    // Not bound — fall through to error.
+  }
+  throw new Error('No sheet available: set SHEET_ID in Script Properties (Project Settings → Script properties) or run from a container-bound script');
+}
+
+// === Entry point ===
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents || '{}');
@@ -70,10 +90,10 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── Router ───
+// === Router ===
 function handleAction(body) {
   const action = body.action || 'ping';
-  ensureSheets();
+  try { ensureSheets(); } catch (e) { return { ok: false, error: 'Sheet init failed: ' + (e && e.message || e) }; }
 
   switch (action) {
     case 'ping': return ping();
@@ -105,7 +125,7 @@ function handleAction(body) {
   }
 }
 
-// ─── Auth helper ───
+// === Auth helper ===
 function requireAdmin(body, fn) {
   if (!ADMIN_KEY) return { ok: false, error: 'ADMIN_KEY not configured on GAS side' };
   if (String(body.admin_key || '') !== ADMIN_KEY) return { ok: false, error: 'Unauthorized' };
@@ -113,10 +133,10 @@ function requireAdmin(body, fn) {
 }
 
 function ping() {
-  return { ok: true, message: 'pong', store: APP_NAME, currency: 'USD', time: new Date().toISOString() };
+  return { ok: true, message: 'pong', store: APP_NAME, currency: 'SAR', time: new Date().toISOString() };
 }
 
-// ─── Public product reads ───
+// === Public product reads ===
 function getPublicProducts(body) {
   const all = readSheet(SHEETS.PRODUCTS, PRODUCT_COLS);
   let products = all;
@@ -153,15 +173,12 @@ function getPublicSettings() {
   return { ok: true, settings };
 }
 
-// ─── Auth ───
+// === Auth ===
 function adminLogin(body) {
   if (!body.email || !body.password) return { ok: false, error: 'Email and password required' };
   const users = readSheet(SHEETS.USERS, USER_COLS);
   const user = users.find(u => String(u.email || '').toLowerCase() === String(body.email).toLowerCase());
   if (!user) return { ok: false, error: 'Invalid credentials' };
-  // For now we store password as plain text here (per Zcode original); in a
-  // production system you would hash. The proxy only accepts requests with
-  // the matching admin_key, which is the actual security boundary.
   if (String(user.password) !== String(body.password)) return { ok: false, error: 'Invalid credentials' };
   return { ok: true, id: user.id, email: user.email, name: user.name, role: user.role, phone: user.phone };
 }
@@ -189,7 +206,7 @@ function adminRegister(body) {
   return { ok: true, id: row.id, email: row.email, name: row.name, role: row.role };
 }
 
-// ─── Admin: products ───
+// === Admin: products ===
 function adminListProducts() {
   const products = readSheet(SHEETS.PRODUCTS, PRODUCT_COLS);
   return { ok: true, products, count: products.length };
@@ -237,7 +254,7 @@ function adminDeleteProduct(body) {
   return { ok: true };
 }
 
-// ─── Admin: orders ───
+// === Admin: orders ===
 function adminListOrders() {
   const orders = readSheet(SHEETS.ORDERS, ORDER_COLS);
   const items = readSheet(SHEETS.ORDER_ITEMS, ORDER_ITEM_COLS);
@@ -253,7 +270,6 @@ function adminListOrders() {
 
 function adminUpdateOrder(body) {
   if (!body.id) return { ok: false, error: 'id required' };
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.ORDERS);
   const all = readSheet(SHEETS.ORDERS, ORDER_COLS);
   const existing = all.find(o => o.id === body.id);
   if (!existing) return { ok: false, error: 'Order not found' };
@@ -262,7 +278,7 @@ function adminUpdateOrder(body) {
   return { ok: true, order: updated };
 }
 
-// ─── Admin: stats ───
+// === Admin: stats ===
 function adminStats() {
   const orders = readSheet(SHEETS.ORDERS, ORDER_COLS);
   const products = readSheet(SHEETS.PRODUCTS, PRODUCT_COLS);
@@ -277,7 +293,7 @@ function adminStats() {
   return { ok: true, stats: { total_orders, revenue, by_status, total_products, low_stock_count, total_customers } };
 }
 
-// ─── Admin: settings ───
+// === Admin: settings ===
 function adminSetSettings(body) {
   if (!body.settings || typeof body.settings !== 'object') return { ok: false, error: 'settings object required' };
   const now = new Date().toISOString();
@@ -287,7 +303,7 @@ function adminSetSettings(body) {
   return { ok: true };
 }
 
-// ─── Admin: backups ───
+// === Admin: backups ===
 function adminBackupOrder(body) {
   if (!body.orderId) return { ok: false, error: 'orderId required' };
   const orders = readSheet(SHEETS.ORDERS, ORDER_COLS);
@@ -298,7 +314,6 @@ function adminBackupOrder(body) {
     order: { ...order, items: items.filter(i => i.orderId === order.id) },
     backupTimestamp: new Date().toISOString(),
   };
-  const all = readSheet(SHEETS.BACKUPS, ['key', 'value', 'updatedAt']);
   const key = 'backup_order_' + order.orderNumber;
   const value = JSON.stringify(backup);
   upsertRow(SHEETS.BACKUPS, ['key', 'value', 'updatedAt'], 'key', { key, value, updatedAt: new Date().toISOString() });
@@ -310,7 +325,7 @@ function adminListBackups() {
   return { ok: true, backups: all.map(b => ({ key: b.key, timestamp: b.updatedAt })), count: all.length };
 }
 
-// ─── Customer: orders ───
+// === Customer: orders ===
 function createOrder(body) {
   if (!body.userId) return { ok: false, error: 'userId required' };
   if (!Array.isArray(body.items) || body.items.length === 0) return { ok: false, error: 'items required' };
@@ -371,7 +386,7 @@ function listOrdersForUser(body) {
   return { ok: true, orders };
 }
 
-// ─── Customer: cart ───
+// === Customer: cart ===
 function listCartItems(body) {
   if (!body.userId) return { ok: false, error: 'userId required' };
   const all = readSheet(SHEETS.CARTS, ['id', 'userId', 'productId', 'quantity', 'size', 'color', 'createdAt', 'updatedAt']);
@@ -418,17 +433,17 @@ function deleteCartItem(body) {
   return { ok: true };
 }
 
-// ─── Seed ───
+// === Seed ===
 function seedSampleData() {
   const SEED = [
-    ['Dresses','dresses','Elegant dresses for every occasion','','dress','',0,true,0],
-    ['Tops','tops','Stylish tops and blouses','','shirt','',1,true,0],
-    ['Bottoms','bottoms','Pants, skirts, and shorts','','shopping-bag','',2,true,0],
-    ['Activewear','activewear','Workout and sportswear','','dumbbell','',3,true,0],
-    ['Outerwear','outerwear','Coats, jackets, and layers','','shield','',4,true,0],
-    ['Shoes','shoes','Heels, sneakers, and boots','','footprints','',5,true,0],
-    ['Accessories','accessories','Bags, jewelry, and more','','gem','',6,true,0],
-    ['Lingerie','lingerie','Intimates and sleepwear','','heart','',7,true,0],
+    ['Dresses','dresses','Elegant dresses for every occasion','','dress','',0,true],
+    ['Tops','tops','Stylish tops and blouses','','shirt','',1,true],
+    ['Bottoms','bottoms','Pants, skirts, and shorts','','shopping-bag','',2,true],
+    ['Activewear','activewear','Workout and sportswear','','dumbbell','',3,true],
+    ['Outerwear','outerwear','Coats, jackets, and layers','','shield','',4,true],
+    ['Shoes','shoes','Heels, sneakers, and boots','','footprints','',5,true],
+    ['Accessories','accessories','Bags, jewelry, and more','','gem','',6,true],
+    ['Lingerie','lingerie','Intimates and sleepwear','','heart','',7,true],
   ];
   SEED.forEach(row => {
     const id = Utilities.getUuid();
@@ -468,25 +483,20 @@ function seedSampleData() {
     ['whatsapp_instance_id', ''],
     ['google_drive_credentials', '{}'],
     ['store_name', 'Rehab Shop'],
-    ['store_currency', 'USD'],
+    ['store_currency', 'SAR'],
     ['store_locale', 'en'],
-    ['shipping_free_threshold', '100'],
-    ['shipping_flat_rate', '9.99'],
-    ['tax_rate', '0.08'],
+    ['shipping_free_threshold', '500'],
+    ['shipping_flat_rate', '25'],
+    ['tax_rate', '0.15'],
   ];
   defaults.forEach(([k, v]) => upsertRow(SHEETS.SETTINGS, SETTING_COLS, 'key', { key: k, value: v, updatedAt: new Date().toISOString() }));
 
   return { ok: true, categories: SEED.length, products: products.length };
 }
 
-// ─── Sheet utilities ───
+// === Sheet utilities ===
 function ensureSheets() {
-  const ss = SpreadsheetApp.getActive();
-  if (!ss) {
-    // No active spreadsheet (e.g. running from a context without a bound
-    // sheet). The handler can still respond, but data ops will fail.
-    return;
-  }
+  const ss = _getSpreadsheet();
   Object.entries(SHEETS).forEach(([key, name]) => {
     let sh = ss.getSheetByName(name);
     if (!sh) sh = ss.insertSheet(name);
@@ -513,7 +523,7 @@ function getSheetColumns(key) {
 }
 
 function readSheet(name, cols) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = _getSpreadsheet().getSheetByName(name);
   if (!sh) return [];
   const last = sh.getLastRow();
   if (last < 2) return [];
@@ -526,14 +536,14 @@ function readSheet(name, cols) {
 }
 
 function appendRow(name, cols, row) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = _getSpreadsheet().getSheetByName(name);
   if (!sh) throw new Error('Sheet not found: ' + name);
   const values = cols.map(c => row[c] !== undefined ? row[c] : '');
   sh.appendRow(values);
 }
 
 function upsertRow(name, cols, keyField, row) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = _getSpreadsheet().getSheetByName(name);
   if (!sh) throw new Error('Sheet not found: ' + name);
   const keyCol = cols.indexOf(keyField) + 1;
   if (keyCol < 1) throw new Error('Key field not in cols: ' + keyField);
@@ -550,7 +560,7 @@ function upsertRow(name, cols, keyField, row) {
 }
 
 function deleteRow(name, keyField, keyValue) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = _getSpreadsheet().getSheetByName(name);
   if (!sh) return;
   const cols = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   const keyCol = cols.indexOf(keyField) + 1;
@@ -564,7 +574,7 @@ function deleteRow(name, keyField, keyValue) {
 }
 
 function deleteRows(name, keyField, keyValue) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = _getSpreadsheet().getSheetByName(name);
   if (!sh) return;
   const cols = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   const keyCol = cols.indexOf(keyField) + 1;
