@@ -157,17 +157,23 @@ function getPublicSettings() {
 function adminLogin(body) {
   if (!body.email || !body.password) return { ok: false, error: 'Email and password required' };
   // Shared secret path: the ADMIN_KEY script property acts as a master password.
-  // If the customer types the shared secret as the password, grant admin access
-  // regardless of the email entered. This matches the project taste: simple
-  // shared secret instead of JWT or per-user passwords.
+  // If the typed password matches ADMIN_KEY, grant admin access immediately,
+  // without touching the sheet. This lets the admin log in even when the
+  // Google Sheet is not configured.
   if (ADMIN_KEY && String(body.password) === String(ADMIN_KEY)) {
-    const users = readSheet(SHEETS.USERS, USER_COLS);
-    const adminUser = users.find(u => String(u.role || '').toLowerCase() === 'admin')
-      || users[0]
-      || { id: Utilities.getUuid(), email: body.email, name: 'Admin', role: 'admin' };
-    return { ok: true, id: adminUser.id, email: body.email || adminUser.email, name: adminUser.name, role: 'admin', phone: adminUser.phone || '' };
+    const adminId = Utilities.getUuid();
+    const adminEmail = String(body.email || '').trim() || 'admin@rehabshop.com';
+    return {
+      ok: true,
+      id: adminId,
+      email: adminEmail,
+      name: 'Admin',
+      role: 'admin',
+      phone: '+201555121132',
+    };
   }
-  // Per-user password fallback (for normal users / customer accounts).
+  // Per-user password fallback (requires SHEET_ID to be configured).
+  if (!SHEET_ID) return { ok: false, error: 'Invalid credentials' };
   const users = readSheet(SHEETS.USERS, USER_COLS);
   const user = users.find(u => String(u.email || '').toLowerCase() === String(body.email).toLowerCase());
   if (!user) return { ok: false, error: 'Invalid credentials' };
