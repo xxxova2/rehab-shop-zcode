@@ -39,7 +39,7 @@ export function CheckoutView() {
         if (data.error) { toast.error(data.error); return }
         setUser(data.id, data.name, data.email, data.role)
       } else {
-        const res = await fetch(`/api/auth?email=${encodeURIComponent(loginForm.email)}&password=${encodeURIComponent(loginForm.password)}`)
+        const res = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginForm.email, password: loginForm.password, action: 'login' }) })
         const data = await res.json()
         if (data.error) { toast.error(data.error); return }
         setUser(data.id, data.name, data.email, data.role)

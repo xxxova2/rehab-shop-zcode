@@ -1,71 +1,34 @@
-import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { gasFetch } from '@/lib/gas';
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const category = searchParams.get('category')
-    const search = searchParams.get('search')
-    const featured = searchParams.get('featured')
+export const dynamic = 'force-dynamic';
 
-    const where: any = {}
-    if (category && category !== 'all') {
-      where.category = category
-    }
-    if (search) {
-      where.name = { contains: search }
-    }
-    if (featured === 'true') {
-      where.featured = true
-    }
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get('category');
+  const search = searchParams.get('search');
+  const featured = searchParams.get('featured');
 
-    const products = await db.product.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    })
+  const [products, categories] = await Promise.all([
+    gasFetch<{ products: any[] }>({
+      action: 'getPublicProducts',
+      lang: 'en',
+      ...(category && category !== 'all' ? { category } : {}),
+      ...(search ? { search } : {}),
+      ...(featured === 'true' ? { featured: true } : {}),
+    }),
+    gasFetch<{ categories: any[] }>({ action: 'getPublicCategories', lang: 'en' }),
+  ]);
 
-    const categories = await db.category.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-    })
+  if (!products.ok) return NextResponse.json({ error: products.error }, { status: 500 });
+  if (!categories.ok) return NextResponse.json({ error: categories.error }, { status: 500 });
 
-    return NextResponse.json({ products, categories })
-  } catch (error) {
-    console.error('Error fetching products:', error)
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
-  }
+  return NextResponse.json({ products: products.products || [], categories: categories.categories || [] });
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    const { name, slug, subtitle, description, material, price, comparePrice, images, category, sizes, colors, inStock, featured, isNew, isSale, stockQuantity, tags } = body
-
-    const product = await db.product.create({
-      data: {
-        name,
-        slug,
-        subtitle: subtitle || null,
-        description,
-        material: material || null,
-        price: parseFloat(price),
-        comparePrice: comparePrice ? parseFloat(comparePrice) : null,
-        images,
-        category,
-        sizes,
-        colors,
-        inStock: inStock !== undefined ? inStock : true,
-        featured: featured !== undefined ? featured : false,
-        isNew: isNew !== undefined ? isNew : false,
-        isSale: isSale !== undefined ? isSale : false,
-        stockQuantity: stockQuantity ? parseInt(stockQuantity) : 100,
-        tags: tags || null,
-      },
-    })
-
-    return NextResponse.json(product)
-  } catch (error) {
-    console.error('Error creating product:', error)
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })
-  }
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const result = await gasFetch<{ product: any }>({ action: 'adminUpsertProduct', ...body });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  return NextResponse.json(result.product || result);
 }

@@ -1,31 +1,17 @@
-import { db } from '@/lib/db'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { gasFetch } from '@/lib/gas';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  try {
-    const settings = await db.settings.findMany()
-    const map: Record<string, string> = {}
-    settings.forEach((s) => (map[s.key] = s.value))
-    return NextResponse.json(map)
-  } catch (error) {
-    console.error('Error fetching settings:', error)
-    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
-  }
+  const result = await gasFetch<{ settings: Record<string, string> }>({ action: 'getPublicSettings' });
+  if (!result.ok) return NextResponse.json({});
+  return NextResponse.json(result.settings || {});
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    for (const [key, value] of Object.entries(body)) {
-      await db.settings.upsert({
-        where: { key },
-        update: { value: String(value) },
-        create: { key, value: String(value) },
-      })
-    }
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })
-  }
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const result = await gasFetch({ action: 'adminSetSettings', settings: body });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  return NextResponse.json({ success: true });
 }
